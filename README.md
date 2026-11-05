@@ -14,15 +14,22 @@ cp .env.example .env      # puis compléter le SMTP
 npm run dev               # http://localhost:5173
 ```
 
-## Production
+## Déploiement sur Cloudflare Workers
+
+Le projet utilise `@sveltejs/adapter-cloudflare` ; la configuration est dans `wrangler.jsonc`
+(Worker + assets statiques, flag `nodejs_compat` pour pdfmake et nodemailer).
 
 ```bash
-npm run build
-node --env-file=.env build   # écoute sur le port 3000 (variable PORT)
+npx wrangler login                 # une seule fois
+npx wrangler secret put SMTP_HOST  # puis SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_BCC (optionnel)
+npm run deploy                     # build + wrangler deploy
 ```
 
-À placer derrière un reverse proxy (Nginx/Apache) avec HTTPS, par ex. `simulateur.materfrance.fr`.
-Si le proxy est devant Node, définir `ADDRESS_HEADER=X-Forwarded-For` et `XFF_DEPTH=1` pour que la limitation par IP fonctionne.
+- `PVGIS_BASE_URL` et `SMTP_PORT` sont dans `vars` (wrangler.jsonc) ; les identifiants uniquement en **secrets**.
+- Tester le build Cloudflare en local : `cp .dev.vars.example .dev.vars`, compléter, puis `npm run preview`.
+- Domaine : décommenter `routes` dans `wrangler.jsonc` (ex. `simulateur.materfrance.fr`) une fois le DNS sur Cloudflare,
+  ou brancher le dépôt GitHub dans *Workers & Pages → Create → Import a repository* (build : `npm run build`, deploy : `npx wrangler deploy`).
+- Les limites anti-spam et le cache PVGIS sont en mémoire : ils valent par instance du Worker (suffisant pour ce trafic).
 
 ## Structure
 

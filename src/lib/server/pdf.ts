@@ -1,4 +1,6 @@
-import { createRequire } from "node:module";
+// pdfmake : on importe explicitement la version serveur (js/index.js). Sur Cloudflare Workers,
+// le bundler choisirait sinon la version navigateur (champ "browser" du package).
+import pdfmake from "pdfmake/js/index.js";
 import type { TDocumentDefinitions, Content, ContentStack } from "pdfmake/interfaces";
 import {
   MOIS,
@@ -16,27 +18,32 @@ import logoSvg from "#lib/assets/logo-materfrance.svg?raw";
 // Poppins n'a pas l'espace fine insécable (U+202F) utilisée par toLocaleString('fr-FR')
 const fmt = (n: number, d = 0) => fmtFr(n, d).replace(/\u202f/g, "\u00a0");
 
-const require = createRequire(import.meta.url);
-// pdfmake (côté serveur) est un module CommonJS.
-const pdfmake = require("pdfmake");
-const poppins = (w: number) =>
-  require.resolve(`@fontsource/poppins/files/poppins-latin-${w}-normal.woff`);
+// Polices embarquées dans le bundle (pas d'accès disque sur Cloudflare Workers) :
+// Vite les inline en data URL, on les dépose dans le système de fichiers virtuel de pdfmake.
+import poppins400 from "@fontsource/poppins/files/poppins-latin-400-normal.woff?inline";
+import poppins600 from "@fontsource/poppins/files/poppins-latin-600-normal.woff?inline";
+import poppins700 from "@fontsource/poppins/files/poppins-latin-700-normal.woff?inline";
+
+const vfsFont = (name: string, dataUrl: string) => {
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  // `virtualfs` existe dans pdfmake 0.3 mais n'est pas typé dans @types/pdfmake
+  (pdfmake as unknown as { virtualfs: { writeFileSync(n: string, c: string, e: string): void } }).virtualfs.writeFileSync(
+    name,
+    base64,
+    "base64",
+  );
+  return name;
+};
+const P400 = vfsFont("Poppins-400.woff", poppins400);
+const P600 = vfsFont("Poppins-600.woff", poppins600);
+const P700 = vfsFont("Poppins-700.woff", poppins700);
+
 pdfmake.setFonts({
-  Poppins: {
-    normal: poppins(400),
-    bold: poppins(600),
-    italics: poppins(400),
-    bolditalics: poppins(600),
-  },
-  PoppinsBold: {
-    normal: poppins(700),
-    bold: poppins(700),
-    italics: poppins(700),
-    bolditalics: poppins(700),
-  },
+  Poppins: { normal: P400, bold: P600, italics: P400, bolditalics: P600 },
+  PoppinsBold: { normal: P700, bold: P700, italics: P700, bolditalics: P700 },
 });
 pdfmake.setUrlAccessPolicy(() => false); // aucune ressource distante
-pdfmake.setLocalAccessPolicy(() => true); // polices locales
+pdfmake.setLocalAccessPolicy(() => false); // polices dans le système de fichiers virtuel
 
 // Charte MaterFrance (Figma « MF - site »)
 const C = {

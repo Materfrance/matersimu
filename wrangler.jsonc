@@ -1,0 +1,43 @@
+// Configuration Cloudflare Workers (static assets) — https://developers.cloudflare.com/workers/wrangler/configuration/
+// Build : `npm run build` génère .svelte-kit/cloudflare, puis `npx wrangler deploy`.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "matersimu",
+	// Point d'entrée et assets générés par @sveltejs/adapter-cloudflare
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-10-01",
+	// pdfmake / pdfkit / nodemailer utilisent des API Node (Buffer, stream, zlib, net…)
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"observability": {
+		"enabled": true
+	},
+	// pdfmake / pdfkit utilisent `import.meta.url`, `__dirname` et `__filename` (chemins de fichiers),
+	// qui n'existent pas une fois le Worker bundlé : on leur donne des valeurs fictives.
+	// Les polices sont chargées en mémoire (voir src/lib/server/pdf.ts), aucun fichier n'est lu.
+	"define": {
+		"import.meta.url": "\"file:///matersimu/_worker.js\"",
+		"__dirname": "\"/matersimu\"",
+		"__filename": "\"/matersimu/_worker.js\""
+	},
+
+	// Domaine personnalisé (à décommenter une fois le DNS de materfrance.fr sur Cloudflare)
+	// "routes": [{ "pattern": "simulateur.materfrance.fr", "custom_domain": true }],
+
+	// Variables non sensibles (visibles dans le dashboard)
+	"vars": {
+		"PVGIS_BASE_URL": "https://re.jrc.ec.europa.eu/api/v5_3",
+		"SMTP_PORT": "465"
+	}
+
+	// Secrets : ne JAMAIS les mettre ici. À définir avec
+	//   npx wrangler secret put SMTP_HOST
+	//   npx wrangler secret put SMTP_USER
+	//   npx wrangler secret put SMTP_PASS
+	//   npx wrangler secret put MAIL_FROM
+	//   npx wrangler secret put MAIL_BCC   (optionnel)
+	// En local (`npx wrangler dev`), mettre ces valeurs dans un fichier .dev.vars (ignoré par git).
+}
